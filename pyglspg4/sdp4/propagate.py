@@ -3,25 +3,24 @@
 #
 # This file is part of Pyglspg4.
 
-"""
-Deep-space propagation entry point.
-"""
-
 from __future__ import annotations
 
-from pyglspg4.sdp4.state import SDP4State
 from pyglspg4.sdp4.integrator import integrate_deep_space
+from pyglspg4.sdp4.periodic import apply_periodic_terms
+from pyglspg4.sdp4.eci import deep_space_eci
 
 
 def propagate_deep_space(
-    state: SDP4State,
-    tsince_minutes: float,
+    state,
+    tsince_minutes,
+    backend,
 ):
     """
-    Perform deep-space propagation.
-
-    NOTE:
-    Orbital plane → ECI conversion occurs after Phase 4B.
+    Full deep-space SDP-4 propagation.
     """
-    return integrate_deep_space(state, tsince_minutes)
+
+    secular = integrate_deep_space(state, tsince_minutes)
+    periodic = apply_periodic_terms(secular, tsince_minutes)
+
+    return deep_space_eci(periodic, backend)
 

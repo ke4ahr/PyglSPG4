@@ -5,6 +5,9 @@
 
 """
 Coordinate rotation utilities.
+
+Provides elementary rotations about principal axes, used to transform
+orbital-plane coordinates into the Earth-centered inertial (ECI) frame.
 """
 
 from __future__ import annotations
@@ -15,6 +18,9 @@ from pyglspg4.backend.base import MathBackend
 
 
 def rotate_z(v: Sequence[float], angle: float, backend: MathBackend):
+    """
+    Rotate vector v about the Z-axis by the given angle (radians).
+    """
     c = backend.cos(angle)
     s = backend.sin(angle)
     return (
@@ -25,6 +31,9 @@ def rotate_z(v: Sequence[float], angle: float, backend: MathBackend):
 
 
 def rotate_x(v: Sequence[float], angle: float, backend: MathBackend):
+    """
+    Rotate vector v about the X-axis by the given angle (radians).
+    """
     c = backend.cos(angle)
     s = backend.sin(angle)
     return (

@@ -4,7 +4,10 @@
 # This file is part of Pyglspg4.
 
 """
-Immutable SGP-4 propagation state.
+SGP-4 near-Earth state representation.
+
+Defines the immutable state parameters required for SGP-4 propagation
+after TLE initialization.
 """
 
 from __future__ import annotations
@@ -15,9 +18,7 @@ from dataclasses import dataclass
 @dataclass(frozen=True)
 class SGP4State:
     """
-    Fully-initialized SGP-4 state vector.
-
-    This object is immutable and thread-safe.
+    Immutable SGP-4 state.
     """
     mean_motion: float
     eccentricity: float
@@ -25,5 +26,4 @@ class SGP4State:
     argument_of_perigee: float
     raan: float
     mean_anomaly: float
-    bstar: float
 

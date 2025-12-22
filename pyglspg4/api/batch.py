@@ -5,11 +5,14 @@
 
 """
 Batch propagation API.
+
+Provides helpers for propagating multiple satellites sequentially
+using a shared configuration and backend selection.
 """
 
 from __future__ import annotations
 
-from typing import Iterable, Sequence
+from typing import Sequence
 
 from pyglspg4.api.propagate import propagate
 
@@ -22,13 +25,20 @@ def propagate_batch(
     """
     Propagate multiple satellites sequentially.
 
-    Deterministic reference implementation.
+    Args:
+        parsed_tles: Sequence of ParsedTLE objects
+        epochs: Sequence of Epoch objects
+        backend: Optional backend selector ("numpy" or None)
+
+    Returns:
+        List of (position, velocity) tuples.
     """
     if len(parsed_tles) != len(epochs):
-        raise ValueError("parsed_tles and epochs must be same length")
+        raise ValueError("parsed_tles and epochs must be the same length")
 
     results = []
     for tle, epoch in zip(parsed_tles, epochs):
         results.append(propagate(tle, epoch, backend))
+
     return results
 

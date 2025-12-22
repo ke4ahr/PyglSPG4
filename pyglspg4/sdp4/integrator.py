@@ -4,45 +4,56 @@
 # This file is part of Pyglspg4.
 
 """
-Deep-space secular integrator (SDP-4).
+Deep-space numerical integrator scaffolding for SDP-4.
+
+Defines a deterministic, thread-safe integration framework for
+advancing deep-space orbital elements over time. This module
+intentionally provides a minimal structure suitable for extension
+with full SDP-4 secular and periodic perturbation equations.
 """
 
 from __future__ import annotations
 
-from pyglspg4.sdp4.state import SDP4State
-from pyglspg4.sdp4.solar_lunar import compute_solar_lunar_terms
-from pyglspg4.sdp4.resonance import resonance_rates
+from dataclasses import dataclass
+
+from pyglspg4.sdp4.constants import EPSILON
 
 
-def integrate_deep_space(
-    state: SDP4State,
-    tsince_minutes: float,
-) -> SDP4State:
+@dataclass(frozen=True)
+class IntegratorState:
     """
-    Apply deep-space secular perturbations.
+    Immutable integrator state snapshot.
+    """
+    mean_anomaly: float
+    argument_of_perigee: float
+    raan: float
+
+
+def integrate_step(
+    state: IntegratorState,
+    delta_t: float,
+):
+    """
+    Advance deep-space angular elements by a small time step.
+
+    Args:
+        state: Current IntegratorState
+        delta_t: Time step (minutes)
+
+    Returns:
+        New IntegratorState advanced by delta_t.
+
+    Notes:
+        This function currently performs a linear phase advance and
+        serves as a placeholder for the full SDP-4 integrator.
     """
 
-    terms = compute_solar_lunar_terms(tsince_minutes)
-    rates = resonance_rates(state.resonance)
+    if abs(delta_t) < EPSILON:
+        return state
 
-    # Secular updates
-    new_mean_motion = (
-        state.mean_motion + rates.mean_motion_dot * tsince_minutes
-    )
-    new_mean_anomaly = (
-        state.mean_anomaly
-        + rates.mean_anomaly_dot * tsince_minutes
-        + terms.solar_mean_longitude
-        + terms.lunar_mean_longitude
-    )
-
-    return SDP4State(
-        mean_motion=new_mean_motion,
-        eccentricity=state.eccentricity,
-        inclination=state.inclination,
+    return IntegratorState(
+        mean_anomaly=state.mean_anomaly + delta_t,
         argument_of_perigee=state.argument_of_perigee,
         raan=state.raan,
-        mean_anomaly=new_mean_anomaly,
-        resonance=state.resonance,
     )
 

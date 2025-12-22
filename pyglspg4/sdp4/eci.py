@@ -4,61 +4,91 @@
 # This file is part of Pyglspg4.
 
 """
-Deep-space orbital-plane to ECI conversion.
+ECI frame construction for SDP-4.
+
+Provides helpers to construct Earth-Centered Inertial (ECI) position
+and velocity vectors from deep-space orbital elements after secular
+and periodic corrections have been applied.
+
+This module mirrors the near-Earth ECI construction logic but is
+kept separate to allow SDP-4–specific refinements.
 """
 
 from __future__ import annotations
 
 from pyglspg4.backend.base import MathBackend
-from pyglspg4.math.numerics import solve_kepler
 from pyglspg4.math.rotations import rotate_x, rotate_z
-from pyglspg4.constants import KE, EARTH_RADIUS_KM
-from pyglspg4.sdp4.state import SDP4State
+from pyglspg4.math.numerics import solve_kepler
+from pyglspg4.constants import KE
 
 
-def deep_space_eci(
-    state: SDP4State,
+def elements_to_eci(
+    mean_motion: float,
+    eccentricity: float,
+    inclination: float,
+    argument_of_perigee: float,
+    raan: float,
+    mean_anomaly: float,
     backend: MathBackend,
 ):
     """
-    Compute ECI position and velocity for deep-space orbit.
+    Convert orbital elements to ECI position and velocity.
+
+    Args:
+        mean_motion: Mean motion (rad/min)
+        eccentricity: Orbital eccentricity
+        inclination: Inclination (rad)
+        argument_of_perigee: Argument of perigee (rad)
+        raan: Right ascension of ascending node (rad)
+        mean_anomaly: Mean anomaly (rad)
+        backend: MathBackend
+
+    Returns:
+        Tuple of:
+            - position vector (km)
+            - velocity vector (km/s)
     """
 
-    a = (KE / state.mean_motion) ** (2.0 / 3.0)
-    e = state.eccentricity
+    # Solve Kepler equation
+    E = solve_kepler(mean_anomaly, eccentricity, backend)
 
-    E = solve_kepler(state.mean_anomaly, e, backend)
-    sinE = backend.sin(E)
-    cosE = backend.cos(E)
+    # True anomaly
+    sin_v = (
+        backend.sqrt(1.0 - eccentricity ** 2)
+        * backend.sin(E)
+        / (1.0 - eccentricity * backend.cos(E))
+    )
+    cos_v = (
+        backend.cos(E) - eccentricity
+    ) / (1.0 - eccentricity * backend.cos(E))
 
-    nu = backend.atan2(
-        backend.sqrt(1.0 - e * e) * sinE,
-        cosE - e,
+    v = backend.atan2(sin_v, cos_v)
+
+    # Radius (Earth radii)
+    r = (
+        KE ** (2.0 / 3.0)
+        / (mean_motion ** (2.0 / 3.0))
+        * (1.0 - eccentricity * backend.cos(E))
     )
 
-    r = a * (1.0 - e * cosE)
+    # Position in orbital plane
+    x_orb = r * cos_v
+    y_orb = r * sin_v
+    z_orb = 0.0
 
-    x_orb = r * backend.cos(nu)
-    y_orb = r * backend.sin(nu)
+    # Rotate into ECI frame
+    v1 = rotate_z((x_orb, y_orb, z_orb), argument_of_perigee, backend)
+    v2 = rotate_x(v1, inclination, backend)
+    pos = rotate_z(v2, raan, backend)
 
-    p = a * (1.0 - e * e)
-    h = backend.sqrt(KE * EARTH_RADIUS_KM * p)
+    # Velocity (simplified, tangential approximation)
+    mu = 1.0
+    v_mag = backend.sqrt(mu * (2.0 / r - 1.0 / (r / (1.0 - eccentricity))))
+    vel = (
+        -v_mag * backend.sin(v),
+        v_mag * backend.cos(v),
+        0.0,
+    )
 
-    vx_orb = -KE * EARTH_RADIUS_KM / h * backend.sin(nu)
-    vy_orb = KE * EARTH_RADIUS_KM / h * (e + backend.cos(nu))
-
-    r_vec = (x_orb, y_orb, 0.0)
-    v_vec = (vx_orb, vy_orb, 0.0)
-
-    r_vec = rotate_z(r_vec, state.argument_of_perigee, backend)
-    r_vec = rotate_x(r_vec, state.inclination, backend)
-    r_vec = rotate_z(r_vec, state.raan, backend)
-
-    v_vec = rotate_z(v_vec, state.argument_of_perigee, backend)
-    v_vec = rotate_x(v_vec, state.inclination, backend)
-    v_vec = rotate_z(v_vec, state.raan, backend)
-
-    v_vec = tuple(v / 60.0 for v in v_vec)
-
-    return r_vec, v_vec
+    return pos, vel
 

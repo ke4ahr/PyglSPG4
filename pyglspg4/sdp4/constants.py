@@ -4,15 +4,20 @@
 # This file is part of Pyglspg4.
 
 """
-Deep-space constants per Vallado.
+SDP-4 deep-space constants.
+
+Defines numerical thresholds and resonance identifiers used by the
+deep-space (SDP-4) propagation path.
 """
 
-PI = 3.141592653589793
-TWO_PI = 2.0 * PI
+# Resonance identifiers
+RESONANCE_NONE = 0
+RESONANCE_HALF_DAY = 1
+RESONANCE_ONE_DAY = 2
 
-# Solar / lunar coefficients (Vallado-normalized)
-ZES = 0.01675
-ZEL = 0.05490
-ZNS = 1.19459e-5
-ZNL = 1.5835218e-4
+# Deep-space period threshold (minutes)
+DEEP_SPACE_PERIOD_MINUTES = 225.0
+
+# Small numerical tolerance
+EPSILON = 1.0e-12
 

@@ -4,7 +4,11 @@
 # This file is part of Pyglspg4.
 
 """
-Pure Python math backend.
+Pure-Python math backend.
+
+Provides standard library math functions implementing the MathBackend
+protocol. This backend is deterministic and requires no external
+dependencies.
 """
 
 import math

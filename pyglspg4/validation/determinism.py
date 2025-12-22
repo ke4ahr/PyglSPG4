@@ -4,18 +4,34 @@
 # This file is part of Pyglspg4.
 
 """
-Determinism verification utilities.
+Determinism validation utilities.
+
+Provides helpers to verify that Pyglspg4 propagation results are
+bitwise-consistent across repeated runs, threads, and execution modes.
 """
 
 from __future__ import annotations
 
+from typing import Callable, Any, Tuple
 
-def assert_deterministic(fn, args, runs: int = 5):
+
+def assert_deterministic(
+    func: Callable[[], Tuple[Any, Any]],
+    repeats: int = 5,
+):
     """
-    Ensure repeated executions produce identical results.
+    Assert that a callable returns identical results across runs.
+
+    Args:
+        func: Zero-argument callable returning a result tuple
+        repeats: Number of times to repeat execution
+
+    Raises:
+        AssertionError if results differ across runs.
     """
-    first = fn(*args)
-    for _ in range(runs - 1):
-        if fn(*args) != first:
+
+    first = func()
+    for _ in range(repeats - 1):
+        if func() != first:
             raise AssertionError("Non-deterministic behavior detected")
 

@@ -5,6 +5,10 @@
 
 """
 NumPy-accelerated math backend.
+
+Implements the MathBackend protocol using NumPy vectorized functions.
+This backend enables batch and parallel propagation with improved
+performance when NumPy is available.
 """
 
 import numpy as np

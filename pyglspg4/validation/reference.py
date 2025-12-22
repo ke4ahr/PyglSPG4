@@ -4,26 +4,55 @@
 # This file is part of Pyglspg4.
 
 """
-Reference validation helpers.
+Reference validation scaffolding.
 
-Intended for comparison against Vallado SGP-4 test vectors.
+Provides structures and helpers for validating Pyglspg4 propagation
+results against trusted reference implementations (e.g., Vallado SGP4,
+Celestrak test vectors).
+
+This module is intentionally lightweight and deterministic, serving
+as an integration point for regression testing rather than a full
+test harness.
 """
 
 from __future__ import annotations
 
-from math import sqrt
+from dataclasses import dataclass
+from typing import Tuple
 
 
-def position_error_km(p1, p2):
-    dx = p1[0] - p2[0]
-    dy = p1[1] - p2[1]
-    dz = p1[2] - p2[2]
-    return sqrt(dx * dx + dy * dy + dz * dz)
+@dataclass(frozen=True)
+class ReferenceState:
+    """
+    Immutable reference state snapshot.
+    """
+    position_km: Tuple[float, float, float]
+    velocity_km_s: Tuple[float, float, float]
 
 
-def velocity_error_km_s(v1, v2):
-    dx = v1[0] - v2[0]
-    dy = v1[1] - v2[1]
-    dz = v1[2] - v2[2]
-    return sqrt(dx * dx + dy * dy + dz * dz)
+def compare_states(
+    computed: ReferenceState,
+    reference: ReferenceState,
+):
+    """
+    Compare two ECI states and compute absolute error vectors.
+
+    Args:
+        computed: State produced by Pyglspg4
+        reference: Trusted reference state
+
+    Returns:
+        Tuple of:
+            - position error vector (km)
+            - velocity error vector (km/s)
+    """
+
+    pos_err = tuple(
+        c - r for c, r in zip(computed.position_km, reference.position_km)
+    )
+    vel_err = tuple(
+        c - r for c, r in zip(computed.velocity_km_s, reference.velocity_km_s)
+    )
+
+    return pos_err, vel_err
 

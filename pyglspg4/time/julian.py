@@ -5,14 +5,14 @@
 
 """
 Julian date utilities.
+
+Provides conversion between calendar dates and Julian dates,
+used internally for epoch handling and time propagation.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
-
-from pyglspg4.constants import SECONDS_PER_DAY
 
 
 @dataclass(frozen=True)
@@ -22,39 +22,42 @@ class JulianDate:
     """
     jd: float
 
-    @classmethod
-    def from_datetime(cls, dt: datetime) -> "JulianDate":
-        if dt.tzinfo is None:
-            raise ValueError("Datetime must be timezone-aware")
 
-        dt = dt.astimezone(timezone.utc)
+def calendar_to_julian(
+    year: int,
+    month: int,
+    day: int,
+    hour: int = 0,
+    minute: int = 0,
+    second: float = 0.0,
+) -> JulianDate:
+    """
+    Convert a calendar date to a Julian Date.
 
-        year = dt.year
-        month = dt.month
-        day = dt.day
-        hour = dt.hour
-        minute = dt.minute
-        second = dt.second + dt.microsecond / 1e6
+    Algorithm valid for Gregorian calendar dates.
+    """
 
-        if month <= 2:
-            year -= 1
-            month += 12
+    if month <= 2:
+        year -= 1
+        month += 12
 
-        a = year // 100
-        b = 2 - a + a // 4
+    a = year // 100
+    b = 2 - a + (a // 4)
 
-        jd_day = int(365.25 * (year + 4716))
-        jd_month = int(30.6001 * (month + 1))
+    day_fraction = (
+        hour / 24.0
+        + minute / 1440.0
+        + second / 86400.0
+    )
 
-        jd = (
-            jd_day
-            + jd_month
-            + day
-            + b
-            - 1524.5
-        )
+    jd = (
+        int(365.25 * (year + 4716))
+        + int(30.6001 * (month + 1))
+        + day
+        + day_fraction
+        + b
+        - 1524.5
+    )
 
-        frac = (hour * 3600.0 + minute * 60.0 + second) / SECONDS_PER_DAY
-
-        return cls(jd + frac)
+    return JulianDate(jd)
 

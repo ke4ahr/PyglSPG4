@@ -4,29 +4,40 @@
 # This file is part of Pyglspg4.
 
 """
-NumPy-oriented vector propagation helpers.
+Vectorized propagation API.
+
+Provides helpers for propagating multiple satellites using NumPy
+vectorization when available. This API is intended for high-throughput
+use cases where many satellites are propagated to a common epoch.
 """
 
 from __future__ import annotations
 
-import numpy as np
+from typing import Sequence
 
-from pyglspg4.api.batch import propagate_batch
+from pyglspg4.api.propagate import propagate
 
 
-def propagate_numpy(
-    parsed_tles,
-    epochs,
+def propagate_vectorized(
+    parsed_tles: Sequence,
+    epoch,
 ):
     """
-    NumPy-friendly wrapper.
+    Propagate multiple satellites to a common epoch using a NumPy backend.
 
-    Returns arrays of positions and velocities.
+    This function is a convenience wrapper that enforces NumPy usage
+    and delegates to the standard propagation path. True state-level
+    vectorization may be introduced in future releases.
+
+    Args:
+        parsed_tles: Sequence of ParsedTLE objects
+        epoch: Epoch instance common to all satellites
+
+    Returns:
+        List of (position, velocity) tuples.
     """
-    results = propagate_batch(parsed_tles, epochs, backend="numpy")
-
-    positions = np.array([r[0] for r in results])
-    velocities = np.array([r[1] for r in results])
-
-    return positions, velocities
+    results = []
+    for tle in parsed_tles:
+        results.append(propagate(tle, epoch, backend="numpy"))
+    return results
 

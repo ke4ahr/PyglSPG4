@@ -5,17 +5,20 @@
 
 """
 Backend protocol for numerical operations.
+
+Defines the minimal math interface required by Pyglspg4 so that
+pure-Python and NumPy backends can be used interchangeably.
 """
 
 from __future__ import annotations
 
-from typing import Protocol
+from typing import Protocol, Callable
 
 
 class MathBackend(Protocol):
-    sin: callable
-    cos: callable
-    sqrt: callable
-    atan2: callable
-    abs: callable
+    sin: Callable[[float], float]
+    cos: Callable[[float], float]
+    sqrt: Callable[[float], float]
+    atan2: Callable[[float, float], float]
+    abs: Callable[[float], float]
 

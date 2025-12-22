@@ -4,37 +4,60 @@
 # This file is part of Pyglspg4.
 
 """
-Parallel execution backends.
+Parallel execution helpers.
+
+Provides thin wrappers around concurrent.futures executors to enable
+thread-safe and process-safe batch propagation while preserving
+deterministic behavior.
 """
 
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
-from typing import Callable, Iterable
+from typing import Callable, Iterable, List, Any
 
 
 def run_threaded(
-    fn: Callable,
-    args: Iterable,
+    func: Callable[[Any], Any],
+    tasks: Iterable[Any],
     max_workers: int | None = None,
-):
+) -> List[Any]:
     """
-    Thread-based execution (safe default).
+    Execute tasks in parallel using threads.
+
+    Args:
+        func: Callable applied to each task
+        tasks: Iterable of task arguments
+        max_workers: Optional maximum number of worker threads
+
+    Returns:
+        List of results in task order.
     """
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        return list(executor.map(fn, args))
+        results = list(executor.map(func, tasks))
+    return results
 
 
 def run_processes(
-    fn: Callable,
-    args: Iterable,
+    func: Callable[[Any], Any],
+    tasks: Iterable[Any],
     max_workers: int | None = None,
-):
+) -> List[Any]:
     """
-    Process-based execution.
+    Execute tasks in parallel using processes.
 
-    Caller is responsible for ensuring picklability.
+    Args:
+        func: Callable applied to each task
+        tasks: Iterable of task arguments
+        max_workers: Optional maximum number of worker processes
+
+    Returns:
+        List of results in task order.
+
+    Notes:
+        Functions and arguments must be pickleable.
     """
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
-        return list(executor.map(fn, args))
+        results = list(executor.map(func, tasks))
+    return results
 

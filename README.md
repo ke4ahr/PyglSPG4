@@ -1,187 +1,180 @@
 # PyglSPG4
 
-**Simplified General Perturbations-4 (SGP-4) implemented in Python under LGPL-3.0**
+Copyright (C) 2025-2026 Kris Kirby, KE4AHR  
+SPDX-License-Identifier: LGPL-3.0-or-later
 
 ---
 
 ## Overview
 
-**PyglSPG4** is a clean, modern Python implementation of the Simplified General Perturbations-4 (SGP-4) orbital propagator used for Earth-orbiting satellites. It propagates satellite position and velocity from Two-Line Element (TLE) sets with an emphasis on:
+PyglSPG4 is a **pure-Python implementation of the NORAD SGP-4 / SDP-4 satellite
+orbit propagation models**, designed with an emphasis on:
 
-- Correctness and numerical fidelity  
-- Thread safety and deterministic behavior  
-- Parallel execution  
-- Optional NumPy acceleration  
-- LGPL-3.0-or-later licensing, enabling use in both open-source and proprietary systems  
+- Deterministic, thread-safe execution
+- Clear scientific architecture
+- Amateur radio satellite operations
+- Educational and research use
+- LGPL-3.0-or-later licensing
 
-This project is suitable for:
-
-- Amateur and professional ground-station software  
-- Space situational awareness (SSA)  
-- Satellite simulation and analysis  
-- Educational and research use  
-- Batch propagation of large satellite catalogs  
+The project is intentionally transparent about its current capabilities
+and limitations, with all gaps explicitly documented.
 
 ---
 
-## Project Goals
+## Key Features
 
-- Implement SGP-4 faithfully using a clean-room Python design  
-- Support pure Python execution (zero required dependencies)  
-- Support NumPy-accelerated execution for performance  
-- Enable parallel batch propagation  
-- Ensure thread safety using immutable state  
-- Provide a maintainable and extensible codebase  
-- Remain fully LGPL-3.0-or-later compliant  
+- TLE parsing and validation
+- Near-Earth SGP-4 orbital propagation
+- TEME → Earth-fixed frame transformations
+- Ground-station geometry and visibility
+- Satellite pass prediction (AOS / LOS / max elevation)
+- Deterministic, parallel-safe design
+- Optional NumPy acceleration
+- Extensive documentation and caveats
 
 ---
 
-## Features
+## Supported Orbits
 
-- Full SGP-4 propagation model  
-- Near-Earth and deep-space orbit handling  
-- Immutable propagation state objects  
-- Deterministic floating-point behavior  
-- Dual math backends:
-  - Native Python math
-  - NumPy vectorized backend  
-- Parallel propagation using threads or processes  
-- Explicit error handling and validation  
-- Designed for long-term extensibility  
+- Near-Earth satellites (orbital period < 225 minutes)
+
+Deep-space orbits (GEO, Molniya, Tundra) are **architecturally planned**
+but **not yet implemented**.
 
 ---
 
 ## Installation
 
-### From Source
+From source:
 
-    git clone https://github.com/ke4ahr/PyglSPG4.git
-    cd PyglSPG4
-    pip install -e .
+    git clone https://github.com/ke4ahr/Pyglspg4.git
+    cd Pyglspg4
+    pip install .
 
-### Dependencies
+Optional NumPy support:
 
-- Python 3.10 or newer  
-- NumPy (optional, for accelerated backend)  
+    pip install .[numpy]
 
-PyglSPG4 functions fully without NumPy.
+Development dependencies:
 
----
-
-## Basic Usage (Planned API)
-
-### Parsing a TLE
-
-    from pyglspg4 import parse_tle
-
-    tle = [
-        "1 25544U 98067A   25344.12345678  .00006789  00000-0  10270-4 0  9991",
-        "2 25544  51.6452 123.4567 0007863  20.1234 340.9876 15.50012345  1234"
-    ]
-
-    state = parse_tle(tle)
-
-### Propagating to an Epoch
-
-    from pyglspg4 import propagate
-
-    pv = propagate(state, epoch="2025-12-25T12:00:00Z")
-    print(pv.position, pv.velocity)
-
-### Selecting an Execution Backend
-
-    from pyglspg4.backend import select_backend
-
-    backend = select_backend(prefer="numpy")
-    pv = propagate(state, epoch, backend=backend)
+    pip install .[dev]
 
 ---
 
-## Parallel Propagation
+## Basic Usage
 
-PyglSPG4 supports batch propagation across:
+### Propagating a Satellite Orbit
 
-- Multiple satellites  
-- Multiple epochs  
-- Threads or processes  
-- NumPy vectorized execution  
+    from pyglspg4.tle.parser import parse_tle
+    from pyglspg4.api.propagate import propagate
 
-Example:
+    tle = parse_tle(line1, line2)
+    position_km, velocity_km_s, error = propagate(tle, tsince_min)
 
-    from pyglspg4 import batch
-
-    results = batch(states, epochs, backend="numpy", strategy="process")
-
----
-
-## Thread Safety and Determinism
-
-- No global mutable state  
-- All propagation inputs are immutable  
-- Numerical routines are pure functions  
-- Safe concurrent execution  
-- Reproducible results across runs  
+    if error == 0:
+        print(position_km)
+    else:
+        print("Propagation error:", error)
 
 ---
 
-## Testing and Validation
+### Predicting Ground-Station Passes
 
-Planned validation strategy includes:
+    from datetime import datetime, timedelta
+    import math
 
-- Reference vectors from Vallado and NASA SGP-4  
-- Cross-backend comparison tests  
-- Regression testing against known catalogs  
-- Deterministic parallel execution tests  
+    from pyglspg4.groundstation.station import GroundStation
+    from pyglspg4.groundstation.passes import predict_passes
+
+    lat = math.radians(32.806671)
+    lon = math.radians(-86.791130)
+    alt_km = 0.2
+
+    station = GroundStation(lat, lon, alt_km)
+
+    start = datetime.utcnow()
+    end = start + timedelta(days=2)
+
+    passes = predict_passes(tle, station, start, end)
+
+    for p in passes:
+        print(p["aos"], p["los"], p["max_el"])
 
 ---
 
-## Project Status
+## Examples and Scripts
 
-Early development and architecture phase.
+See the `examples/` and `scripts/` directories for:
 
-- Core architecture defined  
-- Public API under active design  
-- Math implementation in progress  
-- No official release yet  
+- ISS pass prediction
+- Ground-station geometry
+- Batch propagation
+- Fetching live TLEs
+- Printing pass tables
 
 ---
 
-## Roadmap
+## Documentation
 
-### Phase 1 — Core Implementation
+Detailed documentation is provided in the `docs/` directory:
 
-- Implement reference-aligned SGP-4 math  
-- TLE parsing and validation  
-- Scalar propagation using pure Python backend  
-- Unit tests for all math primitives  
+- ARCHITECTURE.md — system design and philosophy
+- ROADMAP.md — planned features and phases
+- VALIDATION.md — test coverage and validation strategy
+- CAVEATS.md — scientific limitations and gaps
+- CHANGELOG.md — project history
+- MANPAGE.md — user-facing manual
 
-### Phase 2 — Performance and Parallelism
+---
 
-- NumPy backend implementation  
-- Vectorized Kepler solver  
-- Parallel batch propagation  
-- Performance benchmarking harness  
+## Scientific Status
 
-### Phase 3 — Stability and Release
+Current state:
 
-- Full validation against reference outputs  
-- Deterministic regression tests  
-- API freeze  
-- Version 1.0.0 release  
+- SGP-4 near-Earth: implemented and usable
+- SDP-4 deep-space: not yet implemented
+- Earth orientation: simplified (GMST only)
+- Validation: partial, not NORAD-certified
 
-### Phase 4 — Extended Capabilities
+This software **does not claim mission-grade accuracy**.
 
-- SDP-4 deep-space refinements  
-- Earth orientation parameter support  
-- Optional GPU acceleration using Numba or CUDA  
-- Command-line propagation tool  
+See `docs/CAVEATS.md` for full disclosure.
 
-### Long-Term Vision
+---
 
-- Real-time TLE ingestion  
-- Large-scale SSA pipelines  
-- Interoperability with SDR and ground-station software  
-- Optional language bindings and accelerators  
+## Intended Use
+
+PyglSPG4 is intended for:
+
+- Amateur radio satellite tracking
+- Educational orbital mechanics
+- Research prototyping
+- Non-safety-critical applications
+
+It is **not intended** for:
+
+- Mission planning
+- Collision avoidance
+- Spaceflight operations
+- Safety-of-life systems
+
+---
+
+## License
+
+PyglSPG4 is licensed under the **GNU Lesser General Public License v3.0
+or later (LGPL-3.0-or-later)**.
+
+You may use this library in proprietary applications provided that
+modifications to the library itself are released under the same license.
+
+See the `LICENSE` file for full terms.
+
+---
+
+## Author
+
+Kris Kirby, KE4AHR
 
 ---
 
@@ -189,23 +182,18 @@ Early development and architecture phase.
 
 Contributions are welcome.
 
-- Fork the repository  
-- Create feature branches  
-- Add tests and documentation  
-- Submit pull requests  
+Please ensure that any contribution includes:
 
-All contributions must comply with the LGPL-3.0-or-later license.
+- Clear scientific justification
+- Unit and integration tests
+- Reference citations where applicable
+- Compliance with LGPL-3.0-or-later
 
 ---
 
-## License
+## Disclaimer
 
-Copyright © 2025–2026  
-Kris Kirby, KE4AHR  
+This software is provided “as is”, without warranty of any kind.
 
-Licensed under the GNU Lesser General Public License v3.0 or later.
-
-SPDX identifier:
-
-    LGPL-3.0-or-later
+Use at your own risk.
 

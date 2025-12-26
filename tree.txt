@@ -1,0 +1,103 @@
+Pyglspg4/
+├── pyproject.toml
+├── MANIFEST.in
+├── README.md
+├── LICENSE
+│
+├── pyglspg4/
+│   ├── __init__.py
+│   ├── py.typed
+│   │
+│   ├── constants.py
+│   │
+│   ├── backend/
+│   │   ├── __init__.py
+│   │   ├── base.py
+│   │   ├── python.py
+│   │   ├── numpy.py
+│   │   └── selector.py
+│   │
+│   ├── math/
+│   │   ├── __init__.py
+│   │   ├── numerics.py
+│   │   ├── vectors.py
+│   │   └── rotations.py
+│   │
+│   ├── time/
+│   │   ├── __init__.py
+│   │   ├── julian.py
+│   │   └── epochs.py
+│   │
+│   ├── tle/
+│   │   ├── __init__.py
+│   │   ├── parser.py
+│   │   └── validator.py
+│   │
+│   ├── api/
+│   │   ├── __init__.py
+│   │   ├── exceptions.py
+│   │   ├── propagate.py
+│   │   ├── batch.py
+│   │   ├── parallel.py
+│   │   └── vectorized.py
+│   │
+│   ├── sgp4/
+│   │   ├── __init__.py
+│   │   ├── constants.py
+│   │   ├── state.py
+│   │   ├── initializer.py
+│   │   └── near_earth.py
+│   │
+│   ├── sdp4/
+│   │   ├── __init__.py
+│   │   ├── constants.py
+│   │   ├── state.py
+│   │   ├── dsinit.py
+│   │   ├── solar_lunar.py
+│   │   ├── resonance.py
+│   │   ├── integrator.py
+│   │   ├── periodic.py
+│   │   ├── eci.py
+│   │   └── propagate.py
+│   │
+│   ├── parallel/
+│   │   ├── __init__.py
+│   │   └── executors.py
+│   │
+│   └── validation/
+│       ├── __init__.py
+│       ├── reference.py
+│       ├── determinism.py
+│       └── regression.py
+│
+├── tests/
+│   ├── data/
+│   │   ├── celestrak_near_earth.json
+│   │   ├── celestrak_deep_space.json
+│   │   ├── vallado_sgp4.json
+│   │   └── vallado_sdp4.json
+│   │
+│   ├── test_celestrak_sgp4.py
+│   ├── test_celestrak_sdp4.py
+│   ├── test_vallado_sgp4.py
+│   ├── test_vallado_sdp4.py
+│   └── test_backend_consistency.py
+│
+├── benchmarks/
+│   ├── benchmark_sgp4.py
+│   ├── benchmark_sdp4.py
+│   ├── benchmark_batch.py
+│   └── results_schema.json
+├── man/
+│   └── pyglspg4.3
+│
+└── docs/
+    ├── index.md
+    ├── architecture.md
+    ├── api.md
+    ├── usage.md
+    ├── mathematics.md
+    ├── validation.md
+    ├── performance.md
+    └── licensing.md
+

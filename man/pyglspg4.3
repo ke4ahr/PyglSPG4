@@ -1,0 +1,126 @@
+.TH PYGLSPG4 3 "2026-01-01" "Pyglspg4 0.1.0" "Library Functions Manual"
+.
+.SH NAME
+pyglspg4 \- NORAD SGP-4 / SDP-4 satellite orbit propagation library
+.
+.SH SYNOPSIS
+.nf
+Python interface:
+
+    from pyglspg4.tle.parser import parse_tle
+    from pyglspg4.api.propagate import propagate
+    from pyglspg4.time.julian import JulianDate
+
+    tle = parse_tle(line1, line2)
+    epoch = JulianDate(jd)
+    position_km, velocity_km_s = propagate(tle, epoch)
+.fi
+.
+.SH DESCRIPTION
+Pyglspg4 is a deterministic, thread-safe implementation of the NORAD
+SGP-4 (Simplified General Perturbations 4) and SDP-4 (Simplified Deep-Space
+Perturbations 4) orbital propagators.
+
+It computes Earth-centered inertial (ECI) position and velocity vectors
+from Two-Line Element (TLE) sets over time.
+
+The library supports:
+.RS
+.IP \(bu 2
+Near-Earth satellites (SGP-4)
+.IP \(bu 2
+Deep-Space satellites (SDP-4)
+.IP \(bu 2
+Pure-Python and NumPy computation backends
+.IP \(bu 2
+Batch and parallel propagation
+.IP \(bu 2
+Deterministic, reproducible results
+.RE
+.
+.SH FUNCTIONS
+.
+.SS propagate(tle, epoch, backend=None)
+Propagates a single satellite state.
+
+.TP
+.B tle
+Parsed Two-Line Element object.
+.TP
+.B epoch
+JulianDate instance specifying the propagation epoch.
+.TP
+.B backend
+Optional backend selector. Valid values are "python" or "numpy".
+If omitted, a default backend is selected automatically.
+
+.TP
+.B Return Value
+A tuple of:
+.RS
+.IP \(bu 2
+position_km \- (x, y, z) in kilometers
+.IP \(bu 2
+velocity_km_s \- (vx, vy, vz) in kilometers per second
+.RE
+.
+.SS propagate_batch(tles, epoch)
+Propagates multiple satellites sequentially using a shared backend.
+
+.SS propagate_parallel(tles, epoch)
+Propagates multiple satellites in parallel using process-based execution.
+.
+.SH MATHEMATICAL MODEL
+The implementation follows the NORAD SGP-4 and SDP-4 models as described in:
+
+.RS
+Hoots, F. R., and Roehrich, R. L., "Models for Propagation of NORAD Element Sets",
+Spacetrack Report No. 3, 1980.
+.RE
+
+Additional validation and numerical guidance is taken from:
+
+.RS
+Vallado, D. A., Fundamentals of Astrodynamics and Applications.
+.RE
+.
+.SH VALIDATION
+Pyglspg4 has been validated against:
+.RS
+.IP \(bu 2
+Celestrak regression vectors
+.IP \(bu 2
+Published Vallado reference outputs
+.IP \(bu 2
+Cross-backend determinism tests
+.RE
+.
+.SH THREAD SAFETY
+All propagation functions are thread-safe.
+No global mutable state is used.
+.
+.SH PERFORMANCE
+Typical performance on modern systems:
+.RS
+.IP \(bu 2
+SGP-4: tens of thousands of propagations per second
+.IP \(bu 2
+SDP-4: thousands of propagations per second
+.IP \(bu 2
+Near-linear scaling with CPU cores in parallel mode
+.RE
+.
+.SH FILES
+.TP
+.I pyglspg4/
+Python package containing the implementation.
+.
+.SH LICENSE
+GNU Lesser General Public License version 3 or later (LGPL-3.0-or-later).
+.
+.SH COPYRIGHT
+Copyright (C) 2025-2026 Kris Kirby, KE4AHR
+.
+.SH SEE ALSO
+sgp4(3), tle(5), celestrak(7)
+

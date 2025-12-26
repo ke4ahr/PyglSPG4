@@ -1,0 +1,141 @@
+# PyglSPG4 Roadmap
+
+Copyright (C) 2025-2026 Kris Kirby, KE4AHR  
+SPDX-License-Identifier: LGPL-3.0-or-later
+
+---
+
+## Purpose
+
+This roadmap documents the planned evolution of PyglSPG4 from a
+functionally correct SGP-4 implementation to a scientifically validated,
+NORAD-parity orbital mechanics toolkit.
+
+---
+
+## Phase 1 — Core Infrastructure (Completed)
+
+- Project layout and module separation
+- TLE parsing and validation
+- Julian date and epoch handling
+- Deterministic math utilities
+- Thread-safe architecture
+- LGPL licensing compliance
+
+Status: Complete
+
+---
+
+## Phase 2 — Near-Earth SGP-4 (Completed)
+
+- Mean motion recovery
+- Atmospheric drag (B*)
+- J2 secular perturbations
+- Kepler equation solver
+- TEME position propagation
+- Perigee decay detection
+
+Status: Complete (Near-Earth only)
+
+---
+
+## Phase 3 — Frames & Ground Geometry (Completed)
+
+- TEME → PEF conversion (GMST)
+- PEF → ITRF with polar motion
+- ITRF → geodetic conversion
+- Ground station definition
+- Topocentric range/azimuth/elevation
+- AOS / LOS pass detection
+
+Status: Complete (static Earth orientation)
+
+---
+
+## Phase 4 — Validation & Testing (Partial)
+
+Completed:
+- Unit tests for math and parsing
+- Integration test using ISS TLE
+- Pass prediction regression tests
+
+Remaining:
+- Vallado reference test vectors
+- Multi-decade regression testing
+- Error growth characterization
+
+Status: In progress
+
+---
+
+## Phase 5 — Deep-Space SDP-4 (Planned)
+
+- Deep-space resonance integrator
+- Lunar–solar third-body perturbations
+- Long-period and short-period terms
+- GEO / Molniya orbit handling
+- Time-varying drag coupling
+
+Status: Not started
+
+---
+
+## Phase 6 — Earth Orientation & Time (Planned)
+
+- IERS EOP ingestion (xp, yp, DUT1)
+- UT1–UTC handling
+- Precession and nutation (IAU-2000/2006)
+- Velocity frame transformations
+
+Status: Not started
+
+---
+
+## Phase 7 — Radio & Operations (Planned)
+
+- Doppler shift computation
+- Automatic pass-time frequency tables
+- CAT control (rigctl / Hamlib)
+- APRS and digipeater support
+
+Status: Not started
+
+---
+
+## Phase 8 — Interoperability & Export (Planned)
+
+- SatNOGS pass export
+- CSV / JSON pass schedules
+- Ground-track plotting
+- Elevation/time plots
+
+Status: Not started
+
+---
+
+## Phase 9 — Scientific Certification (Long-Term)
+
+- Full NORAD SGP-4 / SDP-4 parity
+- Covariance propagation
+- Space-weather driven drag models
+- Formal numerical validation
+
+Status: Long-term goal
+
+---
+
+## Contribution Policy
+
+Contributions are welcome in all roadmap phases.
+All new physics must include:
+- Unit tests
+- Reference citations
+- Numerical validation
+
+---
+
+## Disclaimer
+
+PyglSPG4 is intended for educational, amateur radio, and research use.
+It is not certified for mission-critical or safety-of-life applications.
+

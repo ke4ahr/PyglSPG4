@@ -1,0 +1,104 @@
+.\" PYGLSPG4(1) manual page
+.\" Copyright (C) 2025-2026 Kris Kirby, KE4AHR
+.\" SPDX-License-Identifier: LGPL-3.0-or-later
+.\"
+.TH PYGLSPG4 1 "2025-12-22" "PyglSPG4" "User Commands"
+.SH NAME
+pyglspg4 \- Python implementation of NORAD SGP-4 / SDP-4 for satellite tracking
+.SH SYNOPSIS
+.B pyglspg4
+.RI [ options ]
+.SH DESCRIPTION
+PyglSPG4 is a pure-Python, LGPL-licensed implementation of the NORAD
+Simplified General Perturbations models (SGP-4 and SDP-4).
+
+It is designed for deterministic orbital propagation, ground-station
+visibility prediction, and amateur radio satellite operations.
+
+The software emphasizes architectural clarity, scientific transparency,
+and thread-safe execution.
+.SH FEATURES
+.IP \(bu 4
+TLE parsing and validation
+.IP \(bu 4
+Near-Earth SGP-4 orbital propagation
+.IP \(bu 4
+TEME to Earth-fixed coordinate transformations
+.IP \(bu 4
+Ground-station pass prediction (AOS / LOS / max elevation)
+.IP \(bu 4
+Deterministic and parallel-safe design
+.SH SUPPORTED ORBITS
+.IP \(bu 4
+Near-Earth satellites (orbital period less than 225 minutes)
+.PP
+Deep-space orbits (GEO, Molniya, Tundra) are architecturally planned
+but not yet implemented.
+.SH COMMAND-LINE INTERFACE
+A formal command-line interface is planned but not yet finalized.
+.PP
+Current usage is via the Python API.
+.SH PYTHON API OVERVIEW
+Basic propagation example:
+.PP
+.nf
+    from pyglspg4.tle.parser import parse_tle
+    from pyglspg4.api.propagate import propagate
+
+    tle = parse_tle(line1, line2)
+    pos, vel, err = propagate(tle, tsince_min)
+.fi
+.PP
+Ground-station pass prediction:
+.PP
+.nf
+    from pyglspg4.groundstation.station import GroundStation
+    from pyglspg4.groundstation.passes import predict_passes
+
+    station = GroundStation(lat_rad, lon_rad, alt_km)
+    passes = predict_passes(tle, station, start_dt, end_dt)
+.fi
+.SH FILES
+.TP
+.B sgp4/
+Near-Earth propagation core
+.TP
+.B sdp4/
+Deep-space propagation (planned)
+.TP
+.B frames/
+Coordinate frame transformations
+.TP
+.B groundstation/
+Visibility and pass prediction
+.TP
+.B docs/
+Architecture, validation, caveats, roadmap
+.SH LIMITATIONS
+.IP \(bu 4
+SDP-4 deep-space propagation not implemented
+.IP \(bu 4
+No IERS Earth Orientation Parameters ingestion
+.IP \(bu 4
+No Doppler shift or CAT control
+.IP \(bu 4
+No formal NORAD certification
+.PP
+See
+.B CAVEATS.md
+for full details.
+.SH LICENSE
+GNU Lesser General Public License v3.0 or later (LGPL-3.0-or-later)
+.SH AUTHOR
+Kris Kirby, KE4AHR
+.SH DISCLAIMER
+This software is provided \(lqas is\(rq without warranty of any kind.
+.PP
+It is intended for educational, research, and amateur radio use.
+It is not certified for mission-critical or safety-of-life applications.
+.SH SEE ALSO
+ARCHITECTURE.md,
+ROADMAP.md,
+VALIDATION.md,
+CAVEATS.md
+

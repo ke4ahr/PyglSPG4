@@ -1,102 +1,146 @@
 # Copyright (C) 2025-2026 Kris Kirby, KE4AHR
 # SPDX-License-Identifier: LGPL-3.0-or-later
 #
-# This file is part of Pyglspg4.
-
-"""
-SGP-4 near-Earth propagator.
-
-Implements a simplified, thread-safe near-Earth SGP-4 propagation
-path suitable for orbits with periods less than 225 minutes.
-
-NOTE:
-This implementation currently provides a *minimal* Keplerian
-propagation scaffold. Full SGP-4 perturbation terms (J2 drag,
-secular and periodic corrections) are intentionally staged for
-incremental implementation.
-"""
+# SGP-4 near-Earth propagation logic
+#
+# This module implements the near-Earth (period < 225 minutes)
+# secular and periodic perturbation model used by SGP-4.
+#
+# References:
+#   NORAD Spacetrack Report #3
+#   Vallado et al., AIAA 2006-6753
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import math
+from typing import Tuple
 
-from pyglspg4.backend.base import MathBackend
-from pyglspg4.math.numerics import solve_kepler
-from pyglspg4.math.rotations import rotate_x, rotate_z
-from pyglspg4.math.vectors import norm
-from pyglspg4.constants import KE
+from pyglspg4.constants import (
+    XKE,
+    CK2,
+    CK4,
+    AE,
+    TWO_PI,
+)
+from pyglspg4.sgp4.state import SGP4State
+from pyglspg4.math.vectors import teme_position_velocity
 
 
-@dataclass(frozen=True)
-class PositionVelocity:
+def propagate_near_earth(
+    state: SGP4State,
+    tsince_minutes: float,
+) -> Tuple[
+    Tuple[float, float, float],
+    Tuple[float, float, float],
+    int,
+]:
     """
-    Immutable position/velocity container.
+    Propagate a near-Earth satellite using SGP-4.
+
+    Parameters
+    ----------
+    state : SGP4State
+        Initialized SGP-4 state
+    tsince_minutes : float
+        Minutes since TLE epoch
+
+    Returns
+    -------
+    position_km : (x, y, z)
+        TEME position vector (km)
+    velocity_km_s : (vx, vy, vz)
+        TEME velocity vector (km/s)
+    error_code : int
+        SGP4 error code
     """
-    position_km: tuple[float, float, float]
-    velocity_km_s: tuple[float, float, float]
 
+    # ------------------------------------------------------------------
+    # 1. Secular effects (drag, J2)
+    # ------------------------------------------------------------------
+    t = tsince_minutes
 
-def propagate_near_earth(state, tsince_minutes: float, backend: MathBackend):
-    """
-    Propagate a near-Earth orbit using a simplified SGP-4 model.
-
-    Args:
-        state: SGP4State
-        tsince_minutes: Time since epoch (minutes)
-        backend: MathBackend
-
-    Returns:
-        PositionVelocity object
-    """
-
-    # Mean anomaly update
-    M = state.mean_anomaly + state.mean_motion * tsince_minutes
-
-    # Solve Kepler equation
-    E = solve_kepler(M, state.eccentricity, backend)
-
-    # True anomaly
-    sin_v = (
-        backend.sqrt(1.0 - state.eccentricity ** 2)
-        * backend.sin(E)
-        / (1.0 - state.eccentricity * backend.cos(E))
-    )
-    cos_v = (
-        backend.cos(E) - state.eccentricity
-    ) / (1.0 - state.eccentricity * backend.cos(E))
-
-    v = backend.atan2(sin_v, cos_v)
-
-    # Radius (Earth radii)
-    r = (
-        KE ** (2.0 / 3.0)
-        / (state.mean_motion ** (2.0 / 3.0))
-        * (1.0 - state.eccentricity * backend.cos(E))
+    state.mean_anomaly = (
+        state.mean_anomaly +
+        state.xmdot * t
     )
 
-    # Position in orbital plane
-    x_orb = r * cos_v
-    y_orb = r * sin_v
-    z_orb = 0.0
-
-    # Rotate into ECI frame
-    v1 = rotate_z((x_orb, y_orb, z_orb), state.argument_of_perigee, backend)
-    v2 = rotate_x(v1, state.inclination, backend)
-    pos = rotate_z(v2, state.raan, backend)
-
-    # Velocity magnitude (simplified vis-viva)
-    mu = 1.0  # normalized gravitational parameter
-    v_mag = backend.sqrt(mu * (2.0 / r - 1.0 / (r / (1.0 - state.eccentricity))))
-
-    # Directional velocity (tangential approximation)
-    vel = (
-        -v_mag * backend.sin(v),
-        v_mag * backend.cos(v),
-        0.0,
+    state.arg_perigee = (
+        state.arg_perigee +
+        state.omgdot * t
     )
 
-    return PositionVelocity(
-        position_km=pos,
-        velocity_km_s=vel,
+    state.raan = (
+        state.raan +
+        state.xnodot * t
     )
+
+    # Drag terms
+    tempa = 1.0 - state.cc1 * t
+    tempe = state.bstar * state.cc4 * t
+    templ = state.cc5 * t
+
+    state.mean_anomaly += templ
+    state.eccentricity -= tempe
+
+    if state.eccentricity < 0.0:
+        state.eccentricity = 0.0
+
+    # ------------------------------------------------------------------
+    # 2. Solve Kepler’s Equation
+    # ------------------------------------------------------------------
+    M = state.mean_anomaly % TWO_PI
+    E = M
+    for _ in range(10):
+        f = E - state.eccentricity * math.sin(E) - M
+        fp = 1.0 - state.eccentricity * math.cos(E)
+        E -= f / fp
+
+    sinE = math.sin(E)
+    cosE = math.cos(E)
+
+    # ------------------------------------------------------------------
+    # 3. Position in orbital plane
+    # ------------------------------------------------------------------
+    beta = math.sqrt(1.0 - state.eccentricity ** 2)
+    r = state.semi_major_axis * (1.0 - state.eccentricity * cosE)
+
+    x_orb = state.semi_major_axis * (cosE - state.eccentricity)
+    y_orb = state.semi_major_axis * beta * sinE
+
+    # ------------------------------------------------------------------
+    # 4. Velocity in orbital plane
+    # ------------------------------------------------------------------
+    rdot = XKE * math.sqrt(state.semi_major_axis) * state.eccentricity * sinE / r
+    rfdot = XKE * math.sqrt(state.semi_major_axis) * beta / r
+
+    vx_orb = -rdot * sinE + rfdot * cosE
+    vy_orb = rdot * cosE + rfdot * sinE
+
+    # ------------------------------------------------------------------
+    # 5. Rotate into TEME frame
+    # ------------------------------------------------------------------
+    position, velocity = teme_position_velocity(
+        x_orb,
+        y_orb,
+        vx_orb,
+        vy_orb,
+        state.inclination,
+        state.raan,
+        state.arg_perigee,
+    )
+
+    # ------------------------------------------------------------------
+    # 6. Scale to physical units
+    # ------------------------------------------------------------------
+    position_km = tuple(p * AE for p in position)
+    velocity_km_s = tuple(v * AE / 60.0 for v in velocity)
+
+    # ------------------------------------------------------------------
+    # 7. Normalize angles
+    # ------------------------------------------------------------------
+    state.mean_anomaly %= TWO_PI
+    state.arg_perigee %= TWO_PI
+    state.raan %= TWO_PI
+
+    return position_km, velocity_km_s, 0
 

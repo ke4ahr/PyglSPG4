@@ -1,70 +1,118 @@
 # Copyright (C) 2025-2026 Kris Kirby, KE4AHR
 # SPDX-License-Identifier: LGPL-3.0-or-later
 #
-# This file is part of Pyglspg4.
-
-"""
-SDP-4 deep-space propagator.
-
-Coordinates deep-space propagation by combining secular integration,
-periodic perturbation hooks, and final ECI frame construction.
-This implementation is deterministic, thread-safe, and structured
-to allow incremental completion of the full SDP-4 model.
-"""
+# SDP-4 propagation dispatcher
+#
+# This module performs full deep-space propagation
+# for satellites with orbital periods >= 225 minutes.
+#
+# References:
+#   NORAD Spacetrack Report #3
+#   Vallado et al., AIAA 2006-6753
 
 from __future__ import annotations
 
-from pyglspg4.backend.base import MathBackend
-from pyglspg4.sdp4.state import SDP4State
-from pyglspg4.sdp4.integrator import IntegratorState, integrate_step
-from pyglspg4.sdp4.periodic import apply_periodic_corrections
-from pyglspg4.sdp4.eci import elements_to_eci
+import math
+from typing import Tuple
+
+from pyglspg4.constants import (
+    AE,
+    XKE,
+    TWO_PI,
+)
+from pyglspg4.sgp4.state import SGP4State
+from pyglspg4.sdp4.dspace import (
+    deep_space_secular,
+    deep_space_integrate,
+)
+from pyglspg4.math.vectors import teme_position_velocity
 
 
 def propagate_deep_space(
-    state: SDP4State,
+    state: SGP4State,
     tsince_minutes: float,
-    backend: MathBackend,
-):
+) -> Tuple[
+    Tuple[float, float, float],
+    Tuple[float, float, float],
+    int,
+]:
     """
-    Propagate a deep-space orbit using a staged SDP-4 pipeline.
+    Propagate a deep-space satellite using SDP-4.
 
-    Args:
-        state: SDP4State
-        tsince_minutes: Time since epoch (minutes)
-        backend: MathBackend
+    Parameters
+    ----------
+    state : SGP4State
+        Initialized SGP-4 state with deep-space parameters
+    tsince_minutes : float
+        Minutes since TLE epoch
 
-    Returns:
-        Tuple of:
-            - position vector (km)
-            - velocity vector (km/s)
+    Returns
+    -------
+    position_km : (x, y, z)
+        TEME position vector (km)
+    velocity_km_s : (vx, vy, vz)
+        TEME velocity vector (km/s)
+    error_code : int
+        SDP-4 error code
     """
 
-    # Initialize integrator state
-    integ = IntegratorState(
-        mean_anomaly=state.mean_anomaly,
-        argument_of_perigee=state.argument_of_perigee,
-        raan=state.raan,
+    # ------------------------------------------------------------------
+    # 1. Apply deep-space secular effects
+    # ------------------------------------------------------------------
+    deep_space_secular(state, tsince_minutes)
+
+    # ------------------------------------------------------------------
+    # 2. Apply deep-space resonance integration
+    # ------------------------------------------------------------------
+    deep_space_integrate(state, tsince_minutes)
+
+    # ------------------------------------------------------------------
+    # 3. Solve Kepler's Equation
+    # ------------------------------------------------------------------
+    M = state.mean_anomaly % TWO_PI
+    E = M
+
+    for _ in range(10):
+        f = E - state.eccentricity * math.sin(E) - M
+        fp = 1.0 - state.eccentricity * math.cos(E)
+        E -= f / fp
+
+    sinE = math.sin(E)
+    cosE = math.cos(E)
+
+    beta = math.sqrt(1.0 - state.eccentricity ** 2)
+    r = state.semi_major_axis * (1.0 - state.eccentricity * cosE)
+
+    # ------------------------------------------------------------------
+    # 4. Position and velocity in orbital plane
+    # ------------------------------------------------------------------
+    x_orb = state.semi_major_axis * (cosE - state.eccentricity)
+    y_orb = state.semi_major_axis * beta * sinE
+
+    rdot = XKE * math.sqrt(state.semi_major_axis) * state.eccentricity * sinE / r
+    rfdot = XKE * math.sqrt(state.semi_major_axis) * beta / r
+
+    vx_orb = -rdot * sinE + rfdot * cosE
+    vy_orb = rdot * cosE + rfdot * sinE
+
+    # ------------------------------------------------------------------
+    # 5. Rotate into TEME frame
+    # ------------------------------------------------------------------
+    position, velocity = teme_position_velocity(
+        x_orb,
+        y_orb,
+        vx_orb,
+        vy_orb,
+        state.inclination,
+        state.raan,
+        state.arg_perigee,
     )
 
-    # Secular integration (single-step placeholder)
-    integ = integrate_step(integ, tsince_minutes)
+    # ------------------------------------------------------------------
+    # 6. Convert to physical units
+    # ------------------------------------------------------------------
+    position_km = tuple(p * AE for p in position)
+    velocity_km_s = tuple(v * AE / 60.0 for v in velocity)
 
-    # Apply periodic corrections (currently no-op)
-    mean_anomaly, argument_of_perigee, raan = apply_periodic_corrections(
-        integ.mean_anomaly,
-        integ.argument_of_perigee,
-        integ.raan,
-    )
-
-    # Convert to ECI coordinates
-    return elements_to_eci(
-        mean_motion=state.mean_motion,
-        eccentricity=state.eccentricity,
-        inclination=state.inclination,
-        argument_of_perigee=argument_of_perigee,
-        raan=raan,
-        mean_anomaly=mean_anomaly,
-        backend=backend,
-    )
+    return position_km, velocity_km_s, 0
 

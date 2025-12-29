@@ -1,59 +1,64 @@
 # Copyright (C) 2025-2026 Kris Kirby, KE4AHR
 # SPDX-License-Identifier: LGPL-3.0-or-later
 #
-# This file is part of Pyglspg4.
-
-"""
-Deep-space numerical integrator scaffolding for SDP-4.
-
-Defines a deterministic, thread-safe integration framework for
-advancing deep-space orbital elements over time. This module
-intentionally provides a minimal structure suitable for extension
-with full SDP-4 secular and periodic perturbation equations.
-"""
+# SDP-4 deep-space secular integrator
+# Corresponds to NORAD dspace routine
+# References:
+#   - Spacetrack Report #3
+#   - Vallado et al. (2006), Section 7
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import math
 
-from pyglspg4.sdp4.constants import EPSILON
+from pyglspg4.sdp4.constants import (
+    DEEP_SPACE_STEP,
+    MAX_DEEP_STEPS,
+)
+from pyglspg4.sdp4.state import SDP4State
 
 
-@dataclass(frozen=True)
-class IntegratorState:
+def integrate(state: SDP4State, tsince_minutes: float) -> None:
     """
-    Immutable integrator state snapshot.
-    """
-    mean_anomaly: float
-    argument_of_perigee: float
-    raan: float
+    Integrate deep-space secular effects over time.
 
-
-def integrate_step(
-    state: IntegratorState,
-    delta_t: float,
-):
-    """
-    Advance deep-space angular elements by a small time step.
-
-    Args:
-        state: Current IntegratorState
-        delta_t: Time step (minutes)
-
-    Returns:
-        New IntegratorState advanced by delta_t.
-
-    Notes:
-        This function currently performs a linear phase advance and
-        serves as a placeholder for the full SDP-4 integrator.
+    This routine advances mean motion, mean anomaly, argument of perigee,
+    and RAAN using resonance-aware numerical integration.
     """
 
-    if abs(delta_t) < EPSILON:
-        return state
+    # No resonance → no deep-space integration needed
+    if not state.resonance:
+        return
 
-    return IntegratorState(
-        mean_anomaly=state.mean_anomaly + delta_t,
-        argument_of_perigee=state.argument_of_perigee,
-        raan=state.raan,
-    )
+    # Time difference from last integration
+    delt = tsince_minutes - state.atime
+    if delt == 0.0:
+        return
+
+    # Determine integration direction
+    step = DEEP_SPACE_STEP if delt > 0.0 else -DEEP_SPACE_STEP
+
+    # Integrate in steps
+    steps = int(abs(delt) / abs(step)) + 1
+    if steps > MAX_DEEP_STEPS:
+        state.error = 1
+        return
+
+    for _ in range(steps):
+        if abs(state.atime - tsince_minutes) < abs(step):
+            step = tsince_minutes - state.atime
+
+        # Update mean anomaly and mean motion
+        state.xli += state.xni * step
+        state.xni += (
+            state.del1 * math.sin(state.fasx2 * state.atime)
+            + state.del2 * math.sin(state.fasx4 * state.atime)
+            + state.del3 * math.sin(state.fasx6 * state.atime)
+        ) * step
+
+        state.atime += step
+
+    # Store results
+    state.mean_anomaly = state.xli
+    state.mean_motion = state.xni
 

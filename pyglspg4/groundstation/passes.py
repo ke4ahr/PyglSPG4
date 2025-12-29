@@ -1,86 +1,124 @@
 # Copyright (C) 2025-2026 Kris Kirby, KE4AHR
 # SPDX-License-Identifier: LGPL-3.0-or-later
 #
-# Ground-station pass prediction logic.
-# Computes AOS, LOS, and max elevation passes.
+# Ground station pass prediction
+#
+# Computes AOS, LOS, and maximum elevation events for
+# satellites relative to a fixed ground station.
+#
+# Reference:
+#   Vallado, Fundamentals of Astrodynamics and Applications
+
+from __future__ import annotations
 
 import math
-from pyglspg4.api.propagate import propagate
-from pyglspg4.frames.teme_to_pef import teme_to_pef
-from pyglspg4.frames.pef_to_itrf import pef_to_itrf
-from pyglspg4.frames.itrf_to_geodetic import itrf_to_geodetic
-from pyglspg4.time.julian import jd_from_datetime
+from dataclasses import dataclass
+from typing import List, Optional
+
+from pyglspg4.sgp4.propagate import propagate
+from pyglspg4.frames.itrf import teme_to_itrf
+from pyglspg4.frames.geodetic import ecef_to_geodetic
+from pyglspg4.groundstation.topocentric import topocentric
+from pyglspg4.groundstation.visibility import is_visible
+
+
+@dataclass(frozen=True)
+class PassEvent:
+    aos: float          # minutes since epoch
+    los: float          # minutes since epoch
+    max_el: float       # radians
+    t_max: float        # minutes since epoch
+
+
+def _sign(x: float) -> int:
+    if x > 0.0:
+        return 1
+    if x < 0.0:
+        return -1
+    return 0
 
 
 def predict_passes(
-    tle,
-    station,
-    start_dt,
-    end_dt,
-    step_sec=30.0,
-    min_elevation_deg=0.0,
-):
+    state,
+    lat: float,
+    lon: float,
+    alt: float,
+    jd_start: float,
+    minutes: float,
+    step: float = 30.0,
+    min_elevation: float = 0.0,
+) -> List[PassEvent]:
     """
     Predict satellite passes over a ground station.
 
     Parameters
     ----------
-    tle : TLE
-    station : GroundStation
-    start_dt, end_dt : datetime
-    step_sec : float
-        Time step in seconds
-    min_elevation_deg : float
-        Minimum elevation for pass detection
+    state : SGP4State
+        Initialized SGP-4 / SDP-4 state
+    lat : float
+        Ground station latitude (rad)
+    lon : float
+        Ground station longitude (rad)
+    alt : float
+        Ground station altitude (km)
+    jd_start : float
+        Start Julian Date (UTC/UT1 aligned)
+    minutes : float
+        Duration to search forward (minutes)
+    step : float
+        Time step for coarse search (minutes)
+    min_elevation : float
+        Elevation mask (rad)
 
     Returns
     -------
-    list of dict
-        Each dict contains AOS, LOS, max_el
+    list of PassEvent
     """
 
-    passes = []
-    in_pass = False
-    current_pass = None
+    events: List[PassEvent] = []
 
-    tsince = 0.0
-    tstep_min = step_sec / 60.0
-    jd0 = jd_from_datetime(start_dt)
+    t = 0.0
+    visible_prev = False
+    aos: Optional[float] = None
+    max_el = -math.pi / 2.0
+    t_max = 0.0
 
-    t = start_dt
-    while t <= end_dt:
-        jd = jd_from_datetime(t)
-        tsince = (jd - jd0) * 1440.0
-
-        pos_teme, vel, err = propagate(tle, tsince)
+    while t <= minutes:
+        r_teme, v_teme, err = propagate(state, t)
         if err != 0:
-            t += timedelta(seconds=step_sec)
+            t += step
             continue
 
-        pos_pef = teme_to_pef(pos_teme, jd)
-        pos_itrf = pef_to_itrf(pos_pef)
+        jd = jd_start + t / 1440.0
+        r_itrf, _ = teme_to_itrf(r_teme, v_teme, jd)
 
-        rng, az, el = station.topocentric(pos_itrf)
-        el_deg = math.degrees(el)
+        az, el, _ = topocentric(r_itrf, lat, lon, alt)
+        visible = is_visible(el, min_elevation)
 
-        if el_deg >= min_elevation_deg:
-            if not in_pass:
-                in_pass = True
-                current_pass = {
-                    "aos": t,
-                    "max_el": el_deg,
-                    "los": None,
-                }
-            else:
-                current_pass["max_el"] = max(current_pass["max_el"], el_deg)
-        else:
-            if in_pass:
-                current_pass["los"] = t
-                passes.append(current_pass)
-                in_pass = False
-                current_pass = None
+        if visible and not visible_prev:
+            aos = t
+            max_el = el
+            t_max = t
 
-        t += timedelta(seconds=step_sec)
+        if visible:
+            if el > max_el:
+                max_el = el
+                t_max = t
 
-    return passes
+        if not visible and visible_prev and aos is not None:
+            events.append(
+                PassEvent(
+                    aos=aos,
+                    los=t,
+                    max_el=max_el,
+                    t_max=t_max,
+                )
+            )
+            aos = None
+            max_el = -math.pi / 2.0
+
+        visible_prev = visible
+        t += step
+
+    return events
 

@@ -1,54 +1,58 @@
 # Copyright (C) 2025-2026 Kris Kirby, KE4AHR
 # SPDX-License-Identifier: LGPL-3.0-or-later
 #
-# This file is part of Pyglspg4.
-
-"""
-Solar and lunar perturbation scaffolding for SDP-4.
-
-This module defines placeholder structures and deterministic hooks
-for incorporating solar and lunar gravitational perturbations into
-the deep-space (SDP-4) propagation path.
-
-Full analytical perturbation models (per Vallado / Hoots & Roehrich)
-are intentionally staged for incremental implementation.
-"""
+# SDP-4 solar–lunar perturbation preprocessing
+# Corresponds to NORAD dscom routine
+# References:
+#   - Spacetrack Report #3
+#   - Vallado et al. (2006), Section 6
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import math
+
+from pyglspg4.constants import DEG2RAD
+from pyglspg4.sdp4.constants import (
+    ZES,
+    ZNS,
+    ZEL,
+    ZNL,
+    C1SS,
+    C1L,
+)
+from pyglspg4.sdp4.state import SDP4State
 
 
-@dataclass(frozen=True)
-class SolarLunarTerms:
+def solar_lunar_precompute(state: SDP4State) -> None:
     """
-    Container for precomputed solar and lunar perturbation terms.
+    Precompute solar and lunar terms for deep-space propagation.
 
-    All values are dimensionless or normalized per SDP-4 conventions.
+    This function initializes the deep-space secular and periodic
+    coefficients used by SDP-4.
     """
-    solar_term: float = 0.0
-    lunar_term: float = 0.0
 
+    # Mean obliquity of the ecliptic (approx)
+    eps = 23.43929111 * DEG2RAD
 
-def compute_solar_lunar_terms(
-    mean_motion: float,
-    eccentricity: float,
-    inclination: float,
-):
-    """
-    Compute solar and lunar perturbation terms.
+    sin_eps = math.sin(eps)
+    cos_eps = math.cos(eps)
 
-    Args:
-        mean_motion: Mean motion (rad/min)
-        eccentricity: Orbital eccentricity
-        inclination: Orbital inclination (rad)
+    # Solar terms
+    state.sse = ZES * C1SS
+    state.ssi = ZNS * C1SS * sin_eps
+    state.ssl = ZNS * C1SS * cos_eps
+    state.ssg = ZES * C1SS
+    state.ssh = ZNS * C1SS
+    state.ssd = ZNS * C1SS
 
-    Returns:
-        SolarLunarTerms instance.
+    # Lunar terms (simplified; full theory applied in dpper)
+    state.sse += ZEL * C1L
+    state.ssi += ZNL * C1L * sin_eps
+    state.ssl += ZNL * C1L * cos_eps
+    state.ssg += ZEL * C1L
+    state.ssh += ZNL * C1L
+    state.ssd += ZNL * C1L
 
-    Notes:
-        This function currently returns zeroed terms and serves
-        as a stable API placeholder for future deep-space modeling.
-    """
-    return SolarLunarTerms()
+    # Mark as deep-space
+    state.is_deep_space = True
 

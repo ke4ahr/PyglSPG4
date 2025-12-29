@@ -1,99 +1,41 @@
 # Copyright (C) 2025-2026 Kris Kirby, KE4AHR
 # SPDX-License-Identifier: LGPL-3.0-or-later
 #
-# This file is part of Pyglspg4.
-
-"""
-SDP-4 periodic perturbation scaffolding.
-
-Defines deterministic hooks for applying periodic perturbations
-to deep-space orbital elements. This module currently provides
-a no-op implementation to preserve API stability.
-"""
+# SDP-4 deep-space periodic perturbations
+# Corresponds to NORAD dpper routine
+# References:
+#   - Spacetrack Report #3
+#   - Vallado et al. (2006), Section 7
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import math
+
+from pyglspg4.sdp4.state import SDP4State
 
 
-@dataclass(frozen=True)
-class PeriodicCorrections:
+def apply_periodic(state: SDP4State) -> None:
     """
-    Container for periodic correction terms.
+    Apply deep-space periodic corrections to orbital elements.
+
+    Updates:
+      - eccentricity
+      - inclination
+      - argument of perigee
+      - mean anomaly
+      - RAAN
     """
-    delta_mean_anomaly: float = 0.0
-    delta_argument_of_perigee: float = 0.0
-    delta_raan: float = 0.0
 
+    # Apply periodic terms
+    state.eccentricity += state.pe
+    state.inclination += state.pinc
 
-def apply_periodic_corrections(
-    mean_anomaly: float,
-    argument_of_perigee: float,
-    raan: float,
-):
-    """
-    Apply periodic perturbation corrections.
+    state.mean_anomaly += state.pl
+    state.arg_perigee += state.pgh
+    state.raan += state.ph
 
-    Args:
-        mean_anomaly: Mean anomaly (rad)
-        argument_of_perigee: Argument of perigee (rad)
-        raan: Right ascension of ascending node (rad)
-
-    Returns:
-        Tuple of corrected (mean_anomaly, argument_of_perigee, raan).
-
-    Notes:
-        This function currently returns inputs unchanged and
-        serves as a stable extension point for future work.
-    """
-    return mean_anomaly, argument_of_perigee, raan
-# Copyright (C) 2025-2026 Kris Kirby, KE4AHR
-# SPDX-License-Identifier: LGPL-3.0-or-later
-#
-# This file is part of Pyglspg4.
-
-"""
-SDP-4 periodic perturbation scaffolding.
-
-Defines deterministic hooks for applying periodic perturbations
-to deep-space orbital elements. This module currently provides
-a no-op implementation to preserve API stability.
-"""
-
-from __future__ import annotations
-
-from dataclasses import dataclass
-
-
-@dataclass(frozen=True)
-class PeriodicCorrections:
-    """
-    Container for periodic correction terms.
-    """
-    delta_mean_anomaly: float = 0.0
-    delta_argument_of_perigee: float = 0.0
-    delta_raan: float = 0.0
-
-
-def apply_periodic_corrections(
-    mean_anomaly: float,
-    argument_of_perigee: float,
-    raan: float,
-):
-    """
-    Apply periodic perturbation corrections.
-
-    Args:
-        mean_anomaly: Mean anomaly (rad)
-        argument_of_perigee: Argument of perigee (rad)
-        raan: Right ascension of ascending node (rad)
-
-    Returns:
-        Tuple of corrected (mean_anomaly, argument_of_perigee, raan).
-
-    Notes:
-        This function currently returns inputs unchanged and
-        serves as a stable extension point for future work.
-    """
-    return mean_anomaly, argument_of_perigee, raan
+    # Normalize angles
+    state.mean_anomaly = state.mean_anomaly % (2.0 * math.pi)
+    state.arg_perigee = state.arg_perigee % (2.0 * math.pi)
+    state.raan = state.raan % (2.0 * math.pi)
 

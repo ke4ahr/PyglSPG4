@@ -1,401 +1,382 @@
-# PySGP4 Architecture
+# PyglSPG4 Architecture
 
-**Project Name:** PySGP4  
-**Purpose:** High-performance, thread-safe, parallel implementation of the Simplified General Perturbations–4 (SGP4) satellite orbit propagation model  
-**Language:** Python 3.10+  
-**License:** GNU Lesser General Public License v3.0 (LGPL-3.0)  
-**Domain:** Orbital mechanics, satellite tracking, space situational awareness  
+Copyright (C) 2025-2026 Kris Kirby, KE4AHR  
+SPDX-License-Identifier: LGPL-3.0-or-later
 
 ---
 
 ## 1. Overview
 
-PySGP4 is a clean-room, LGPL-licensed implementation of the Simplified General Perturbations–4 (SGP4) algorithm for propagating Earth-orbiting satellites from Two-Line Element (TLE) sets.
+PyglSPG4 is a **full NORAD-grade implementation of SGP-4 and SDP-4 orbital propagation** in Python, designed for:
 
-The architecture explicitly supports dual execution paths:
+- Scientific correctness
+- Deterministic, thread-safe execution
+- Parallel propagation
+- Ham-radio and ground-station operations
+- Long-term maintainability
 
-- Pure (native) Python, with zero third-party dependencies  
-- NumPy-accelerated execution, enabling vectorization and SIMD acceleration  
-
-while preserving:
-
-- Determinism  
-- Thread safety  
-- Parallel scalability  
-- Numerical fidelity to the reference SGP4 model  
-
-This design makes PySGP4 suitable for ground-station software, space situational awareness systems, scientific simulation frameworks, and large-scale satellite catalog propagation.
+The project provides a **clean-room, file-by-file implementation** of the NORAD models as documented by Vallado et al., with extensions for modern operational use (frames, passes, Doppler, SatNOGS, CAT control).
 
 ---
 
 ## 2. Design Goals
 
-### 2.1 Functional Goals
-
-- Parse and validate TLEs  
-- Initialize SGP4 orbital elements  
-- Propagate position and velocity at arbitrary epochs  
-- Support near-Earth and deep-space orbits  
-- Match reference SGP4 outputs within accepted tolerances  
-
-### 2.2 Non-Functional Goals
-
-- Thread-safe propagation  
-- Parallel batch execution  
-- No global mutable state  
-- Deterministic floating-point behavior  
-- LGPL-compliant library usage  
-
-### 2.3 Execution Flexibility
-
-- Support pure Python execution with no external dependencies  
-- Support NumPy-accelerated execution where applicable  
-- Allow runtime backend selection  
-- Guarantee numerical equivalence across backends within tolerance  
+- Full SGP-4 / SDP-4 parity with NORAD reference
+- Deterministic and reproducible results
+- No hidden global state
+- Thread-safe and multiprocessing-safe
+- Backend-agnostic math (native Python or NumPy)
+- Clear separation between physics, numerics, and operations
+- GitHub-safe, LGPL-compliant codebase
 
 ---
 
 ## 3. High-Level Architecture
 
-    +-------------------+
-    |  Public API       |
-    |------------------|
-    | propagate()       |
-    | batch()           |
-    +---------+---------+
-              |
-    +---------v---------+
-    | Propagation Core  |
-    |------------------|
-    | Mean Elements     |
-    | Perturbations     |
-    | Kepler Solver     |
-    +---------+---------+
-              |
-    +---------v---------+
-    | Backend Abstraction|
-    |------------------|
-    | Python Backend    |
-    | NumPy Backend     |
-    +---------+---------+
-              |
-    +---------v---------+
-    | Parallel Runtime  |
-    |------------------|
-    | Threads           |
-    | Processes         |
-    | Vectorization     |
-    +-------------------+
+The system is divided into layered subsystems:
+
+1. Core Math & Time
+2. TLE Handling
+3. SGP-4 / SDP-4 Propagation
+4. Frames & Earth Orientation
+5. Ground Station & Visibility
+6. Operational Outputs (Doppler, CAT, SatNOGS)
+7. Validation & Testing
+8. Examples & Scripts
+
+Each layer depends only on layers below it.
 
 ---
 
-## 4. Module Layout
+## 4. Package Layout
 
-    pysg4/
-    ├── api/
-    │   ├── propagate.py
-    │   ├── batch.py
-    │   └── exceptions.py
-    │
-    ├── tle/
-    │   ├── parser.py
-    │   ├── validator.py
-    │   └── model.py
-    │
-    ├── sgp4/
-    │   ├── initializer.py
-    │   ├── near_earth.py
-    │   ├── deep_space.py
-    │   ├── perturbations.py
-    │   ├── kepler.py
-    │   └── state.py
-    │
-    ├── backend/
-    │   ├── base.py
-    │   ├── python.py
-    │   ├── numpy.py
-    │   └── selector.py
-    │
-    ├── math/
-    │   ├── vectors.py
-    │   ├── rotations.py
-    │   ├── polynomials.py
-    │   └── numerics.py
-    │
-    ├── time/
-    │   ├── epochs.py
-    │   ├── julian.py
-    │   └── gmst.py
-    │
-    ├── parallel/
-    │   ├── executor.py
-    │   ├── strategies.py
-    │   └── chunking.py
-    │
-    ├── constants.py
-    ├── types.py
-    └── __init__.py
+    pyglspg4/
+        api/
+            propagate.py
+            batch.py
+            parallel.py
+            vectorized.py
+            exceptions.py
 
----
+        backend/
+            base.py
+            python.py
+            numpy.py
+            selector.py
 
-## 5. Data Model
+        constants.py
 
-### 5.1 Immutable State Objects
+        math/
+            numerics.py
+            vectors.py
+            rotations.py
 
-All propagation inputs are represented as immutable dataclasses.
+        time/
+            julian.py
+            epochs.py
 
-    @dataclass(frozen=True)
-    class SGP4State:
-        mean_motion: float
-        eccentricity: float
-        inclination: float
-        argument_of_perigee: float
-        right_ascension: float
-        mean_anomaly: float
-        drag_term: float
+        tle/
+            parser.py
+            validator.py
 
-Benefits:
+        sgp4/
+            state.py
+            initializer.py
+            near_earth.py
+            propagate.py
 
-- Thread-safe by construction  
-- Safe to share across threads and processes  
-- Enables caching and memoization  
-- Deterministic behavior  
+        sdp4/
+            constants.py
+            state.py
+            resonance.py
+            solar_lunar.py
+            integrator.py
+            periodic.py
+            eci.py
+            propagate.py
 
----
+        frames/
+            teme.py
+            ecef.py
+            itrf.py
+            eop.py
 
-## 6. Backend Abstraction Layer
+        groundstation/
+            station.py
+            visibility.py
+            pass_prediction.py
 
-### 6.1 Backend Interface
+        export/
+            frequency_tables.py
+            satnogs.py
 
-All numerical operations are routed through a backend interface.
+        radio/
+            doppler.py
+            cat.py
 
-    class MathBackend(Protocol):
-        def sin(self, x): ...
-        def cos(self, x): ...
-        def sqrt(self, x): ...
-        def atan2(self, y, x): ...
-        def dot(self, a, b): ...
-        def norm(self, v): ...
+        validation/
+            reference.py
+            determinism.py
+            regression.py
 
-Backend characteristics:
+    examples/
+        iss_passes_alabama.py
+        doppler_table_iss.py
+        satnogs_export.py
 
-- Stateless  
-- Reentrant  
-- Thread-safe  
-- No hidden caches or side effects  
+    docs/
+        ARCHITECTURE.md
+        MANPAGE.md
+        VALIDATION.md
+        CHANGELOG.md
+        CAVEATS.md
+
+    tests/
+        test_constants.py
+        test_sgp4.py
+        test_sdp4.py
+        test_frames.py
+        test_groundstation.py
 
 ---
 
-### 6.2 Native Python Backend
+## 5. Core Constants and Units
 
-Module: backend/python.py
+All physical constants are defined centrally in `pyglspg4/constants.py`, including:
 
-- Uses math and built-in types  
-- Zero external dependencies  
-- Default backend  
-- Ideal for minimal or embedded environments  
+- XKE
+- AE
+- CK2
+- CK4
+- QOMS2T
+- S
+- Earth radius
+- Earth rotation rate
 
-    import math
-
-    class PythonBackend:
-        sin = staticmethod(math.sin)
-        cos = staticmethod(math.cos)
-        sqrt = staticmethod(math.sqrt)
-
----
-
-### 6.3 NumPy Backend
-
-Module: backend/numpy.py
-
-- Uses NumPy ufuncs  
-- Supports scalar and vector inputs  
-- Enables SIMD and batch acceleration  
-- Explicit float64 usage  
-
-    import numpy as np
-
-    class NumPyBackend:
-        sin = staticmethod(np.sin)
-        cos = staticmethod(np.cos)
-        sqrt = staticmethod(np.sqrt)
-
-Constraints:
-
-- No in-place mutation  
-- No reliance on global NumPy state  
-- Arrays treated as immutable inputs  
+Units follow NORAD conventions:
+- Distance: Earth radii internally, km externally
+- Time: minutes from epoch
+- Angles: radians internally
 
 ---
 
-## 7. Backend Selection
+## 6. Math and Numerics Layer
 
-### 7.1 Runtime Selection
+### 6.1 Vectors and Rotations
 
-    from pysg4.backend import select_backend
+- Immutable vector operations
+- Explicit rotation matrices
+- No reliance on global state
 
-    backend = select_backend(prefer="numpy")
+### 6.2 Backend Selection
 
-Selection order:
+The backend system allows switching between:
 
-1. Explicit user request  
-2. NumPy availability  
-3. Fallback to Python backend  
+- Pure Python math
+- NumPy vectorized math
 
----
-
-### 7.2 Per-Call Override
-
-    propagate(state, epoch, backend="python")
-    batch(states, epochs, backend="numpy")
-
-This supports mixed workloads, controlled benchmarking, and deterministic regression testing.
+Backend selection is explicit and thread-safe.
 
 ---
 
-## 8. Thread Safety Strategy
+## 7. Time System
 
-- No global mutable state  
-- All constants are read-only  
-- Functional, side-effect-free propagation core  
-- Immutable inputs and outputs  
-- Safe concurrent execution across threads and processes  
+Time handling includes:
 
----
+- Julian date conversion
+- UTC, TAI, TT separation
+- Epoch handling consistent with TLE format
 
-## 9. Parallel Execution Model
-
-### 9.1 Parallelism Granularity
-
-| Level       | Parallelizable | Notes                       |
-|------------|----------------|-----------------------------|
-| Satellite  | Yes            | Primary axis                |
-| Epoch      | Yes            | Batch propagation           |
-| Equation   | No             | Sequential for stability    |
+All propagation is performed in **minutes since epoch**.
 
 ---
 
-### 9.2 Execution Backends
+## 8. TLE Handling
 
-| Mode        | Python Backend | NumPy Backend |
-|------------|----------------|---------------|
-| Threads    | Yes            | GIL-limited   |
-| Processes  | Yes            | Yes           |
-| Vectorized | No             | Yes           |
+### 8.1 Parsing
 
-Guidance:
+- Strict fixed-column parsing
+- Checksum verification
+- Field validation
 
-- Threads plus NumPy for medium workloads  
-- Processes plus Python for massive catalogs  
-- NumPy vectorization for epoch grids  
+### 8.2 Validation
 
----
+- Mean motion bounds
+- Eccentricity bounds
+- Inclination bounds
+- NORAD catalog consistency
 
-## 10. Vectorization Strategy (NumPy)
-
-### 10.1 Vectorized Components
-
-- Mean anomaly propagation  
-- Trigonometric perturbations  
-- Coordinate transformations  
-- Masked Kepler solver iterations  
-
-### 10.2 Scalar-Only Components
-
-- Deep-space branching logic  
-- Convergence fallback paths  
-- Error handling  
+Invalid TLEs raise explicit exceptions.
 
 ---
 
-## 11. Numerical Determinism
+## 9. SGP-4 Implementation (Near-Earth)
 
-| Scenario            | Guarantee               |
-|---------------------|-------------------------|
-| Same backend        | Bitwise repeatable      |
-| Python vs NumPy     | Numerically equivalent  |
-| Serial vs parallel  | Identical results       |
+### 9.1 Initialization
 
-Mechanisms:
+- Drag terms
+- Secular rates
+- Deep-space switch determination
 
-- Fixed iteration counts  
-- Explicit convergence thresholds  
-- Stable math order  
-- Explicit sorting before batching  
+### 9.2 Propagation
 
----
-
-## 12. Error Handling
-
-### 12.1 Error Categories
-
-| Error              | Description                |
-|-------------------|----------------------------|
-| TLEError          | Invalid TLE                |
-| PropagationError  | Numerical failure          |
-| ConvergenceError  | Kepler solver failure      |
-
-Errors are raised immediately with no silent correction.
+- Secular updates
+- Periodic perturbations
+- Atmospheric drag
+- Error codes per NORAD specification
 
 ---
 
-## 13. Validation and Testing
+## 10. SDP-4 Implementation (Deep Space)
 
-### 13.1 Reference Validation
+### 10.1 Resonance Handling
 
-- NASA and Vallado SGP4 test vectors  
-- Cross-backend comparisons  
+- 1:1 (GEO)
+- 2:1 (Molniya)
 
-    assert pv_python.almost_equals(pv_numpy, tol=1e-12)
+### 10.2 Solar-Lunar Perturbations
 
-### 13.2 Test Layers
+- Third-body gravity
+- Long-period effects
 
-- Unit tests for math primitives  
-- Integration tests for full propagation  
-- Regression tests using catalog snapshots  
+### 10.3 Numerical Integration
 
----
-
-## 14. Performance Targets
-
-| Scenario        | Backend              | Target     |
-|-----------------|----------------------|------------|
-| Single satellite| Python               | < 70 µs    |
-| 1k satellites  | NumPy                | < 40 ms    |
-| 10k satellites | NumPy + processes    | < 300 ms   |
+- Stepwise integration
+- Stability-controlled updates
+- Time-varying drag support
 
 ---
 
-## 15. LGPL-3.0 Licensing Considerations
+## 11. Frames & Earth Orientation
 
-- PySGP4 is a dynamically linkable LGPL library  
-- NumPy is an optional dependency  
-- Applications may remain proprietary  
-- Modifications to PySGP4 must be released under LGPL  
-- Backend abstraction prevents license contamination  
+Implemented frames:
 
----
+- TEME
+- ECEF
+- ITRF
 
-## 16. Future Extensions
+Features:
 
-- Full SDP4 deep-space refinements  
-- Earth orientation parameters  
-- GPU offload using CUDA or OpenCL  
-- Kalman filtering and orbit determination integration  
-- Real-time TLE ingestion pipelines  
+- Earth rotation
+- Polar motion
+- IERS EOP ingestion
+- UTC-based transforms
 
 ---
 
-## 17. Non-Goals
+## 12. Ground Station & Pass Prediction
 
-- Visualization  
-- GUI or UI  
-- Network-based TLE fetching  
-- Orbit determination  
+### 12.1 Ground Station Model
+
+- WGS-84 ellipsoid
+- Geodetic to ECEF conversion
+
+### 12.2 Visibility
+
+- Elevation masking
+- Atmospheric refraction correction
+
+### 12.3 Pass Prediction
+
+- AOS / LOS detection
+- Max elevation computation
+- Deterministic pass segmentation
 
 ---
 
-## 18. Summary
+## 13. Radio & Operations
 
-PySGP4 is architected as a pure, deterministic SGP4 implementation with dual Python and NumPy backends, full thread safety, parallel scalability, and LGPL-3.0–compliant linkage. The design scales from single-satellite ground stations to high-throughput catalog propagation systems without sacrificing correctness, reproducibility, or licensing flexibility.
+### 13.1 Doppler Correction
+
+- Relativistic Doppler computation
+- Frequency tables
+- Time-resolved sweeps
+
+### 13.2 CAT Control
+
+- rigctl / Hamlib compatibility
+- Frequency steering
+- Safe external process control
+
+---
+
+## 14. SatNOGS Export
+
+- JSON-compatible observation export
+- Start/stop times in UTC
+- Frequency and mode metadata
+- Scheduler-ready output
+
+---
+
+## 15. Parallelism & Thread Safety
+
+- No global mutable state
+- Stateless propagation functions
+- Safe multiprocessing and threading
+- Deterministic batch execution
+
+---
+
+## 16. Validation & Testing
+
+### 16.1 Reference Validation
+
+- Vallado test vectors
+- NORAD reference outputs
+- Tolerance-based comparison
+
+### 16.2 Determinism
+
+- Repeatability checks
+- Parallel invariance
+
+### 16.3 Regression
+
+- Long-term drift detection
+- GEO and Molniya stability tests
+
+---
+
+## 17. Examples
+
+Included runnable examples demonstrate:
+
+- ISS pass prediction over Alabama
+- Doppler table generation
+- SatNOGS export workflows
+
+---
+
+## 18. Caveats
+
+- Atmospheric models beyond NORAD are optional extensions
+- Space weather ingestion is supported but not required
+- Visualization is optional and external
+
+Refer to `docs/CAVEATS.md` for details.
+
+---
+
+## 19. Licensing
+
+PyglSPG4 is licensed under:
+
+- GNU Lesser General Public License v3.0 or later
+- SPDX identifier: LGPL-3.0-or-later
+
+All files include appropriate copyright headers.
+
+---
+
+## 20. Status
+
+As of 2025-12-22:
+
+- Full SGP-4 / SDP-4 implemented
+- Validation complete
+- Operational features complete
+- Ready for scientific and amateur-radio use
+
+---
 
